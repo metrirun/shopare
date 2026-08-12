@@ -1,0 +1,36 @@
+name: "Read JSON file with Python"
+
+# This workflow runs when any file is pushed to any branch
+on: [push]
+
+jobs:
+  read-json:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Download all your repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Step 2: Install Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      # Step 3: Run Python script to read JSON file
+      - name: Run Python script
+        run: |
+          python -c "
+import json
+
+# Read the JSON file
+with open('check.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# Print the content
+print('📄 Content of check.json:')
+print(f'Name: {data.get(\"name\")}')
+print(f'Status: {data.get(\"status\")}')
+print(f'Version: {data.get(\"version\")}')
+"
