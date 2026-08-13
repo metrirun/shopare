@@ -25,7 +25,7 @@ def download_file(url, local_filename):
                     # نمایش پیشرفت دانلود
                     if total_size > 0:
                         percent = (downloaded / total_size) * 100
-                        print(f'📊 پیشرفت: {percent:.1f}%', end='\r')
+                        #print(f'📊 پیشرفت: {percent:.1f}%', end='\r')
         
         print(f'\n✅ دانلود کامل شد: {local_filename}')
         print(f'📁 حجم فایل: {downloaded:,} bytes')
