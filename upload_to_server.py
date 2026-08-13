@@ -4,7 +4,7 @@ import sys
 import requests
 from pathlib import Path
 
-def upload_json_to_server(file_path, server_url):
+def upload_json_to_server(file_path,server_url):
     """
     آپلود فایل JSON به سرور
     """
