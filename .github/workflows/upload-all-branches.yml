@@ -53,44 +53,48 @@ jobs:
             
             # پیدا کردن فایل‌ها
             echo "📁 جستجوی فایل‌ها..."
-            FILE_COUNT=0
-            UPLOAD_COUNT=0
             
-            find . -type f -not -path "./.git/*" -not -name ".git" -not -name ".*" | while read file; do
-              # حذف ./ از ابتدا
-              file=${file#./}
-              
+            # شمارنده برای این برنچ
+            BRANCH_SUCCESS=0
+            BRANCH_FAIL=0
+            
+            # پیدا کردن فایل‌ها و آپلود
+            for file in $(find . -type f -not -path "./.git/*" -not -name ".git" -not -name ".*" | sed 's|^\./||'); do
               # بررسی اینکه فایل خالی نباشد و حجم آن کمتر از 10 مگابایت باشد
-              if [ -s "$file" ] && [ $(stat -c%s "$file") -lt 10485760 ]; then
-                FILE_COUNT=$((FILE_COUNT + 1))
-                echo "  📤 ارسال فایل: $file ($(stat -c%s "$file") bytes)"
-                
-                # آپلود فایل به سرور
-                RESPONSE=$(curl -X POST "http://45.147.76.237:8005/upload-files" \
-                  -F "files=@$file" \
-                  -w "\n%{http_code}" \
-                  --max-time 30 \
-                  --silent --show-error 2>&1)
-                
-                HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-                
-                if [ "$HTTP_CODE" = "200" ]; then
-                  echo "    ✅ آپلود موفق (کد: $HTTP_CODE)"
-                  UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
-                  SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+              if [ -s "$file" ]; then
+                FILE_SIZE=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+                if [ "$FILE_SIZE" -lt 10485760 ]; then
+                  echo "  📤 ارسال فایل: $file ($FILE_SIZE bytes)"
+                  
+                  # آپلود فایل به سرور
+                  HTTP_CODE=$(curl -X POST "http://45.147.76.237:8005/upload-files" \
+                    -F "files=@$file" \
+                    -o /dev/null \
+                    -w "%{http_code}" \
+                    --max-time 30 \
+                    --silent --show-error)
+                  
+                  if [ "$HTTP_CODE" = "200" ]; then
+                    echo "    ✅ آپلود موفق (کد: $HTTP_CODE)"
+                    BRANCH_SUCCESS=$((BRANCH_SUCCESS + 1))
+                    SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                  else
+                    echo "    ❌ آپلود ناموفق (کد: $HTTP_CODE)"
+                    BRANCH_FAIL=$((BRANCH_FAIL + 1))
+                    FAIL_COUNT=$((FAIL_COUNT + 1))
+                  fi
                 else
-                  echo "    ❌ آپلود ناموفق (کد: $HTTP_CODE)"
-                  FAIL_COUNT=$((FAIL_COUNT + 1))
+                  echo "  ⚠️ فایل $file (حجم: $FILE_SIZE bytes) - رد شد (بزرگتر از 10MB)"
                 fi
-              elif [ -f "$file" ]; then
-                echo "  ⚠️ فایل $file (حجم: $(stat -c%s "$file") bytes) - رد شد (خالی یا بزرگتر از 10MB)"
+              else
+                echo "  ⚠️ فایل $file خالی است - رد شد"
               fi
             done
             
             echo ""
             echo "📊 خلاصه برنچ $branch:"
-            echo "  📁 کل فایل‌ها: $(find . -type f -not -path "./.git/*" -not -name ".git" | wc -l)"
-            echo "  ✅ آپلود موفق: $UPLOAD_COUNT"
+            echo "  ✅ آپلود موفق: $BRANCH_SUCCESS"
+            echo "  ❌ آپلود ناموفق: $BRANCH_FAIL"
             
           done < branches.txt
           
