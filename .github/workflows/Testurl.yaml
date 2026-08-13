@@ -15,35 +15,16 @@ jobs:
         with:
           python-version: '3.10'
       
-      - name: Check URL accessibility
+      - name: Install dependencies
         run: |
-          python -c "
-import requests
-import sys
-
-url = 'http://45.147.76.237:9000/Data/Software/Metrica_Tracking.zip'
-
-try:
-    response = requests.head(url, timeout=10)
-    if response.status_code == 200:
-        print('✅ لینک قابل مشاهده است (Status Code: 200)')
-        sys.exit(0)
-    elif response.status_code == 404:
-        print('❌ لینک پیدا نشد (Status Code: 404)')
-        sys.exit(1)
-    else:
-        print(f'⚠️ وضعیت نامشخص: {response.status_code}')
-        sys.exit(1)
-except requests.exceptions.Timeout:
-    print('⏱️ زمان درخواست به پایان رسید - لینک در دسترس نیست')
-    sys.exit(1)
-except requests.exceptions.ConnectionError:
-    print('🔴 خطای اتصال - لینک در دسترس نیست')
-    sys.exit(1)
-except Exception as e:
-    print(f'❌ خطا: {e}')
-    sys.exit(1)
-"
+          python -m pip install --upgrade pip
+          pip install requests
+          # اگر فایل requirements.txt دارید:
+          # pip install -r requirements.txt
+      
+      - name: Check URL accessibility
+        run: python check_url.py
       
       - name: Show result
+        if: always()  # این مرحله همیشه اجرا می‌شود
         run: echo "بررسی دسترسی به لینک انجام شد"
