@@ -1,4 +1,4 @@
-name: "Upload JSON to Server (Python)"
+name: "Upload JSON to Server (Curl)"
 
 on:
   push:
@@ -16,22 +16,9 @@ jobs:
         with:
           ref: branch_part_26
       
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
-      
       - name: Check file exists
         id: check_file
         run: |
-          echo "📂 لیست فایل‌های ریپو:"
-          ls -la
-          echo ""
           if [ -f "split_info_4.json" ]; then
             echo "✅ فایل split_info_4.json وجود دارد"
             echo "file_exists=true" >> $GITHUB_OUTPUT
@@ -41,6 +28,31 @@ jobs:
             exit 1
           fi
       
-      - name: Upload to server
+      - name: Upload JSON to server using curl
         if: steps.check_file.outputs.file_exists == 'true'
-        run: python upload_to_server.py
+        run: |
+          echo "📤 ارسال فایل به سرور..."
+          
+          # روش 1: ارسال محتوای JSON
+          curl -X POST "http://45.147.76.237:8005/upload-json" \
+            -H "Content-Type: application/json" \
+            -d @split_info_4.json \
+            -w "\n\n✅ کد وضعیت: %{http_code}\n" \
+            --max-time 30 \
+            --verbose
+          
+          echo ""
+          echo "📤 روش 2: ارسال به عنوان فایل..."
+          
+          # روش 2: ارسال به عنوان فایل
+          curl -X POST "http://45.147.76.237:8005/upload-files" \
+            -F "files=@split_info_4.json" \
+            -w "\n\n✅ کد وضعیت: %{http_code}\n" \
+            --max-time 30 \
+            --verbose
+      
+      - name: Verify upload
+        if: always()
+        run: |
+          echo "✅ عملیات آپلود به پایان رسید"
+          echo "🌐 سرور: http://45.147.76.237:8005"
