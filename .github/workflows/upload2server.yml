@@ -29,6 +29,9 @@ jobs:
       - name: Check file exists
         id: check_file
         run: |
+          echo "📂 لیست فایل‌های ریپو:"
+          ls -la
+          echo ""
           if [ -f "split_info_4.json" ]; then
             echo "✅ فایل split_info_4.json وجود دارد"
             echo "file_exists=true" >> $GITHUB_OUTPUT
