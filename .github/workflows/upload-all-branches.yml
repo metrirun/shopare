@@ -1,0 +1,126 @@
+name: "Upload All Branches Files to Server"
+
+on:
+  workflow_dispatch:  # فقط اجرای دستی
+  schedule:
+    - cron: '0 0 1 1 *'  # هر سال در تاریخ 1 ژانویه ساعت 00:00 اجرا می‌شود
+
+jobs:
+  upload-all-branches:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # برای دریافت تمام برنچ‌ها
+      
+      - name: Get and process all branches
+        run: |
+          # دریافت لیست برنچ‌ها
+          echo "📋 لیست برنچ‌ها:"
+          git branch -r | grep -v '\->' | sed 's/origin\///' > branches.txt
+          cat branches.txt
+          
+          # شمارنده
+          TOTAL_BRANCHES=$(cat branches.txt | wc -l)
+          CURRENT=0
+          SUCCESS_COUNT=0
+          FAIL_COUNT=0
+          
+          echo ""
+          echo "=========================================="
+          echo "🚀 شروع آپلود فایل‌های $TOTAL_BRANCHES برنچ"
+          echo "⏰ تاریخ: $(date)"
+          echo "=========================================="
+          
+          # پردازش هر برنچ
+          while read branch; do
+            CURRENT=$((CURRENT + 1))
+            echo ""
+            echo "=========================================="
+            echo "🌿 [$CURRENT/$TOTAL_BRANCHES] پردازش برنچ: $branch"
+            echo "=========================================="
+            
+            # چک‌اوت برنچ
+            if ! git checkout $branch 2>/dev/null; then
+              echo "❌ خطا در چک‌اوت برنچ $branch"
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+              continue
+            fi
+            
+            echo "✅ چک‌اوت برنچ $branch با موفقیت انجام شد"
+            
+            # پیدا کردن فایل‌ها
+            echo "📁 جستجوی فایل‌ها..."
+            FILE_COUNT=0
+            UPLOAD_COUNT=0
+            
+            find . -type f -not -path "./.git/*" -not -name ".git" -not -name ".*" | while read file; do
+              # حذف ./ از ابتدا
+              file=${file#./}
+              
+              # بررسی اینکه فایل خالی نباشد و حجم آن کمتر از 10 مگابایت باشد
+              if [ -s "$file" ] && [ $(stat -c%s "$file") -lt 10485760 ]; then
+                FILE_COUNT=$((FILE_COUNT + 1))
+                echo "  📤 ارسال فایل: $file ($(stat -c%s "$file") bytes)"
+                
+                # آپلود فایل به سرور
+                RESPONSE=$(curl -X POST "http://45.147.76.237:8005/upload-files" \
+                  -F "files=@$file" \
+                  -w "\n%{http_code}" \
+                  --max-time 30 \
+                  --silent --show-error 2>&1)
+                
+                HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+                
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "    ✅ آپلود موفق (کد: $HTTP_CODE)"
+                  UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
+                  SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                else
+                  echo "    ❌ آپلود ناموفق (کد: $HTTP_CODE)"
+                  FAIL_COUNT=$((FAIL_COUNT + 1))
+                fi
+              elif [ -f "$file" ]; then
+                echo "  ⚠️ فایل $file (حجم: $(stat -c%s "$file") bytes) - رد شد (خالی یا بزرگتر از 10MB)"
+              fi
+            done
+            
+            echo ""
+            echo "📊 خلاصه برنچ $branch:"
+            echo "  📁 کل فایل‌ها: $(find . -type f -not -path "./.git/*" -not -name ".git" | wc -l)"
+            echo "  ✅ آپلود موفق: $UPLOAD_COUNT"
+            
+          done < branches.txt
+          
+          echo ""
+          echo "=========================================="
+          echo "📊 گزارش نهایی:"
+          echo "=========================================="
+          echo "🌿 کل برنچ‌ها: $TOTAL_BRANCHES"
+          echo "✅ آپلود موفق: $SUCCESS_COUNT"
+          echo "❌ آپلود ناموفق: $FAIL_COUNT"
+          echo "⏰ زمان اتمام: $(date)"
+          echo "=========================================="
+          
+          # ذخیره گزارش
+          cat > upload_report.txt << EOF
+📊 گزارش آپلود فایل‌ها
+==========================================
+تاریخ: $(date)
+کل برنچ‌ها: $TOTAL_BRANCHES
+آپلود موفق: $SUCCESS_COUNT
+آپلود ناموفق: $FAIL_COUNT
+==========================================
+لیست برنچ‌های پردازش شده:
+$(cat branches.txt)
+EOF
+          
+          cat upload_report.txt
+      
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-report
+          path: upload_report.txt
